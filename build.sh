@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CURRENT_DIR=$(realpath `dirname "$0"`)
+CURRENT_DIR=$(realpath $(dirname "$0"))
 BUILD_WITH_NO_CACHE_ARG=""
 BUILD_PATH=$CURRENT_DIR
 MAIN_BUILD_LOG=$CURRENT_DIR/build.log
@@ -14,15 +14,15 @@ getDistribution() {
 }
 
 getBasePath() {
-  echo `dirname $1`
+  echo $(dirname $1)
 }
 
 getFilename() {
-  echo `basename $1`
+  echo $(basename $1)
 }
 
 getTag() {
-  TAG=`echo $1 | awk -F "Dockerfile.$2." '{print $2}'`
+  TAG=$(echo $1 | awk -F "Dockerfile.$2." '{print $2}')
   if [[ -z $TAG ]]; then
     TAG="base"
   fi
@@ -39,11 +39,11 @@ getImage() {
 
 getImageFromFile() {
   DOCKER_FILE=$1
-  BASEPATH=`getBasePath "$DOCKER_FILE"`
-  FILENAME=`getFilename "$DOCKER_FILE"`
-  DISTRIBUTION=`getDistribution "$FILENAME"`
-  TAG=`getTag "$FILENAME" "$DISTRIBUTION"`
-  IMAGE=`getImage "$DISTRIBUTION" "$TAG"`
+  BASEPATH=$(getBasePath "$DOCKER_FILE")
+  FILENAME=$(getFilename "$DOCKER_FILE")
+  DISTRIBUTION=$(getDistribution "$FILENAME")
+  TAG=$(getTag "$FILENAME" "$DISTRIBUTION")
+  IMAGE=$(getImage "$DISTRIBUTION" "$TAG")
   echo $IMAGE
 }
 
@@ -53,11 +53,11 @@ build() {
   echo "=== Building $DOCKER_FILE"
   echo ""
 
-  BASEPATH=`getBasePath "$DOCKER_FILE"`
-  FILENAME=`getFilename "$DOCKER_FILE"`
-  DISTRIBUTION=`getDistribution "$FILENAME"`
-  TAG=`getTag "$FILENAME" "$DISTRIBUTION"`
-  IMAGE=`getImage "$DISTRIBUTION" "$TAG"`
+  BASEPATH=$(getBasePath "$DOCKER_FILE")
+  FILENAME=$(getFilename "$DOCKER_FILE")
+  DISTRIBUTION=$(getDistribution "$FILENAME")
+  TAG=$(getTag "$FILENAME" "$DISTRIBUTION")
+  IMAGE=$(getImage "$DISTRIBUTION" "$TAG")
 
   echo "Distribution: $DISTRIBUTION"
   echo "Tag: $TAG"
