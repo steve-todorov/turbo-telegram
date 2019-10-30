@@ -45,3 +45,4 @@ WORKDIR /home/jenkins
 USER jenkins
 
 CMD echo "" && cat /etc/os-release && echo "" && /bin/bash
+
