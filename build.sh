@@ -6,7 +6,7 @@ BUILD=$CURRENT_DIR
 MAIN_BUILD_LOG=$CURRENT_DIR/build.log
 TAG_SNAPSHOT=""
 # So that we can pass the timestamp from the CI
-TIMESTAMP=${TIMESTAMP:-`date +%s`}
+TIMESTAMP=${TIMESTAMP:-`date +"%y%m%d%H%M%S"`}
 
 build() {
   DOCKER_FILE=$1
