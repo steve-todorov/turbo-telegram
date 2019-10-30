@@ -90,7 +90,7 @@ usage() {
     -c |--clear         Clears all temp/log files from the repository.
     -nc|--no-cache      Adds --no-cache to the docker build command
     -s |--snapshot      Tag the images as snapshots (i.e. strongboxci/alpine:base-TIMESTAMP)
-    -gs|--get-snapshot  Prints the snapshot version (i.e. TIMESTAMP || PR-123-TIMESTAMP || BRANCH-TIMESTAMP; needed for CI)
+    -gi|--get-image     Prints the full image and tag (i.e. strongboxci/alpine:base-TIMESTAMP||PR-123-TIMESTAMP||BRANCH-TIMESTAMP; needed for CI)
 
 EOF
     exit 0
@@ -122,10 +122,10 @@ while [[ $# -gt 0 ]]; do
               TAG_SNAPSHOT="$TIMESTAMP"
             fi
             shift
-          ;;
-        -gi|--get-image)
-          GET_IMAGE=true
-          shift
+        ;;
+        --get-image)
+            GET_IMAGE=true
+            shift
         ;;
         -h|--help)
             usage
@@ -167,7 +167,7 @@ if [[ ! -z $BUILD_PATH ]]; then
     fi
   # what just happened?
   else
-    echo "$1 is neither a file nor a directory. Exiting."
+    echo "$BUILD_PATH neither a file nor a directory. Exiting."
     exit 1
   fi
 fi
