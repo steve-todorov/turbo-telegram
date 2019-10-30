@@ -10,12 +10,14 @@ pipeline {
         disableResume()
         durabilityHint 'PERFORMANCE_OPTIMIZED'
         disableConcurrentBuilds()
+        skipDefaultCheckout()
         skipStagesAfterUnstable()
     }
     stages {
         stage('Node') {
             steps {
                 nodeInfo("docker")
+                checkout scm
             }
         }
         stage('strongboxci/alpine:base') {
