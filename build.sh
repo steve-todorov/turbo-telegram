@@ -2,22 +2,27 @@
 
 CURRENT_DIR=$(realpath `dirname "$0"`)
 BUILD_WITH_NO_CACHE_ARG=""
-BUILD=$CURRENT_DIR
+BUILD_PATH=$CURRENT_DIR
 MAIN_BUILD_LOG=$CURRENT_DIR/build.log
 TAG_SNAPSHOT=""
 # So that we can pass the timestamp from the CI
 TIMESTAMP=${TIMESTAMP:-`date +"%y%m%d%H%M%S"`}
+GET_SNAPSHOT=""
 
-build() {
-  DOCKER_FILE=$1
+getDistribution() {
+  echo $1 | awk -F[=.] '{print $2}'
+}
 
-  echo "=== Building $DOCKER_FILE"
-  echo ""
+getBasePath() {
+  echo `dirname $1`
+}
 
-  BASEPATH=`dirname $DOCKER_FILE`
-  FILENAME=`basename $DOCKER_FILE`
-  DISTRIBUTION=`echo $FILENAME | awk -F[=.] '{print $2}'`
-  TAG=`echo $FILENAME | awk -F "Dockerfile.$DISTRIBUTION." '{print $2}'`
+getFilename() {
+  echo `basename $1`
+}
+
+getTag() {
+  TAG=`echo $1 | awk -F "Dockerfile.$2." '{print $2}'`
   if [[ -z $TAG ]]; then
     TAG="base"
   fi
@@ -25,8 +30,24 @@ build() {
   if [[ ! -z "$TAG_SNAPSHOT" ]]; then
     TAG="$TAG-$TAG_SNAPSHOT"
   fi
+  echo "$TAG"
+}
 
-  IMAGE="strongboxci/$DISTRIBUTION:$TAG"
+getImage() {
+  echo "strongboxci/$1:$2"
+}
+
+build() {
+  DOCKER_FILE=$1
+
+  echo "=== Building $DOCKER_FILE"
+  echo ""
+
+  BASEPATH=`getBasePath "$DOCKER_FILE"`
+  FILENAME=`getFilename "$DOCKER_FILE"`
+  DISTRIBUTION=`getDistribution "$FILENAME"`
+  TAG=`getTag "$FILENAME" "$DISTRIBUTION"`
+  IMAGE=`getImage "$DISTRIBUTION" "$TAG"`
 
   echo "Distribution: $DISTRIBUTION"
   echo "Tag: $TAG"
@@ -42,6 +63,16 @@ build() {
   echo ""
 
   echo "success: $IMAGE" >> $MAIN_BUILD_LOG
+}
+
+getSnapshot() {
+  DOCKER_FILE=$1
+  BASEPATH=`getBasePath "$DOCKER_FILE"`
+  FILENAME=`getFilename "$DOCKER_FILE"`
+  DISTRIBUTION=`getDistribution "$FILENAME"`
+  TAG=`getTag "$FILENAME" "$DISTRIBUTION"`
+  IMAGE=`getImage "$DISTRIBUTION" "$TAG"`
+  echo $IMAGE
 }
 
 usage() {
@@ -93,35 +124,47 @@ while [[ $# -gt 0 ]]; do
             shift
           ;;
         -gs|--get-snapshot)
-          echo $TAG_SNAPSHOT
-          exit 0
+          GET_SNAPSHOT=true
+          shift
         ;;
         -h|--help)
             usage
             exit 0
         ;;
         *)
-            BUILD=$1
+            BUILD_PATH=$1
             shift
             break
         ;;
     esac
 done
 
-if [[ ! -z $BUILD ]]; then
+if [[ ! -z $BUILD_PATH ]]; then
   # Clear main build log before starting.
-  truncate -s 0 $MAIN_BUILD_LOG
+  if [[ -z "$GET_SNAPSHOT" ]]; then
+    truncate -s 0 $MAIN_BUILD_LOG
+  fi
 
   # build all Dockerfiles in a directory
-  if [[ -d $BUILD ]]; then
-    for dockerFile in $(find $BUILD -type f -name "*Dockerfile*" ! -name "*.log" ! -name "*.bkp*" | sort | xargs); do
-      build "$dockerFile"
+  if [[ -d $BUILD_PATH ]]; then
+    for dockerFile in $(find $BUILD_PATH -type f -name "*Dockerfile*" ! -name "*.log" ! -name "*.bkp*" | sort | xargs); do
+      if [[ -z "$GET_SNAPSHOT" ]]; then
+        build "$dockerFile"
+      else
+        getSnapshot "$dockerFile"
+      fi
     done
-    echo "Done" >> $MAIN_BUILD_LOG
+    if [[ -z "$GET_SNAPSHOT" ]]; then
+      echo "Done" >> $MAIN_BUILD_LOG
+    fi
   # build a specific Dockerfile
-  elif [[ -f $BUILD ]]; then
-    build "$BUILD"
-    echo "Done" >> $MAIN_BUILD_LOG
+  elif [[ -f $BUILD_PATH ]]; then
+    if [[ -z "$GET_SNAPSHOT" ]]; then
+      build "$BUILD_PATH"
+      echo "Done" >> $MAIN_BUILD_LOG
+    else
+      getSnapshot "$BUILD_PATH"
+    fi
   # what just happened?
   else
     echo "$1 is neither a file nor a directory. Exiting."
@@ -129,4 +172,4 @@ if [[ ! -z $BUILD ]]; then
   fi
 fi
 
-echo ""
+[[ ! -z "$GET_SNAPSHOT" ]] || echo ""
