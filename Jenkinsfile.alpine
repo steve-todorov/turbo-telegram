@@ -20,7 +20,7 @@ pipeline {
                 checkout scm
             }
         }
-        stage('strongboxci/alpine:base') {
+        stage('base') {
             when {
                 anyOf {
                     triggeredBy cause: "UserIdCause"
@@ -33,7 +33,7 @@ pipeline {
                 }
             }
         }
-        stage('strongboxci/alpine:jdk8') {
+        stage('jdk8') {
             when {
                 anyOf {
                     // should run upon manual build.
@@ -43,23 +43,39 @@ pipeline {
                 }
             }
             steps {
-                echo "jdk8"
-                // docker.build('-f images/alpine/Dockerfile.alpine -t strongboxci/alpine:base --no-cache .')
+                script {
+                    def files = sh(returnStdout: true, script: '''find ./images/alpine -mindepth 2 -type f -name "*Dockerfile*" | sort | xargs''')
+                    println files
+
+                    files.split(" ").each {
+                        println it
+                        def match = (it =~ /(.*)\\/Dockerfile\.(\w+)(\.(.+))?/)
+                        if (match.find()) {
+                            def DISTRIBUTION = match.group(2)
+                            def TAG = match.group(4) ? match.group(4) : 'base'
+                            def IMAGE = "strongboxci/$DISTRIBUTION:$TAG"
+                        } else {
+                            println "Something went wrong and we could not properly parse ${f} - skipping"
+                        }
+
+                        println "Building image: ${IMAGE}"
+
+                        docker.build($IMAGE, '-f ${it} --no-cache .')
+                    }
+                }
+                echo "jdk test"
             }
         }
-        stage('strongboxci/alpine:jdk11') {
+        stage('build-tools') {
             when {
                 anyOf {
-                    // should run upon manual build.
-                    triggeredBy cause: "UserIdCause"
-                    changeset "images/alpine/Dockerfile.alpine"
-                    changeset "images/alpine/jdk11/Dockerfile.alpine.*"
+                    changeset "Dockerfile.alpine"
+                    changeset "images/jdk/Dockerfile.alpine.jdk8"
+                    changeset "images/build-tools/**"
                 }
             }
             steps {
-                echo "jdk11"
-
-                // docker.build('-f images/alpine/Dockerfile.alpine -t strongboxci/alpine:base --no-cache .')
+                echo "build-tools test"
             }
         }
     }
