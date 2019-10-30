@@ -2,10 +2,9 @@
 
 def DISTRIBUTION = 'alpine'
 def IMAGE_NAME = "strongboxci/" + DISTRIBUTION
+def SNAPSHOT = params.getOrDefault("DEPLOY", false);
+def TIMESTAMP = (new Date()).format("yyyyddMMHHmmss")
 def IMAGES = [];
-def SNAPSHOT=params.getOrDefault("DEPLOY", false) ? " --snapshot " : ""
-def BUILD_ARGS="$SNAPSHOT"
-def TIMESTAMP=new Date().getTime()
 
 pipeline {
     agent {
@@ -20,18 +19,18 @@ pipeline {
         disableResume()
         durabilityHint 'PERFORMANCE_OPTIMIZED'
         disableConcurrentBuilds()
-        skipDefaultCheckout()
         skipStagesAfterUnstable()
     }
     environment {
-      TIMESTAMP = "$TIMESTAMP"
+        TIMESTAMP = "$TIMESTAMP"
     }
     stages {
         stage('node') {
             steps {
                 container("docker") {
                     nodeInfo("docker")
-                    checkout scm
+                    processDockerfiles("./images/${DISTRIBUTION}/Dockerfile.${DISTRIBUTION}", SNAPSHOT);
+                    error "yes."
                 }
             }
         }
@@ -45,12 +44,8 @@ pipeline {
             steps {
                 script {
                     container("docker") {
-                        IMAGE = "strongboxci/" + DISTRIBUTION + ":base"
-
-                        sh label: "Building $IMAGE_NAME",
-                           script: "/bin/bash ${env.WORKSPACE}/build.sh ${BUILD_ARGS} ./images/$DISTRIBUTION/Dockerfile.$DISTRIBUTION"
-
-                        IMAGES.add(IMAGE)
+                        def built = processDockerfiles(IMAGE_NAME, SNAPSHOT, "./images/" + DISTRIBUTION + "/Dockerfile." + DISTRIBUTION);
+                        IMAGES.plus(built)
                     }
                 }
             }
@@ -68,7 +63,8 @@ pipeline {
                 container("docker") {
                     script {
                         def files = sh(returnStdout: true, script: '''find ./images/${DISTRIBUTION}/jdk8 -type f -name "*Dockerfile*" | sort | xargs''')
-                        processDockerfiles(files)
+                        def built = processDockerfiles(files, SNAPSHOT);
+                        IMAGES.plus(built)
                     }
                 }
             }
@@ -86,7 +82,8 @@ pipeline {
                 container("docker") {
                     script {
                         def files = sh(returnStdout: true, script: '''find ./images/${DISTRIBUTION}/jdk11 -type f -name "*Dockerfile*" | sort | xargs''')
-                        processDockerfiles(files)
+                        def built = processDockerfiles(files, SNAPSHOT);
+                        IMAGES.plus(built)
                     }
                 }
             }
@@ -95,12 +92,13 @@ pipeline {
             when {
                 anyOf {
                     branch 'master'
-                    params.DEPLOY
+                    expression { params.getOrDefault("DEPLOY", false) == true }
                 }
             }
             steps {
                 container("docker") {
-                    echo "Deploying images: " + images.toString()
+                    echo "Deploying images: " + IMAGES.toString()
+/*
                     withDockerRegistry([credentialsId: dockerCredentials, url: dockerUrl]) {
                         script {
                             IMAGES.each {
@@ -109,36 +107,38 @@ pipeline {
                             }
                         }
                     }
+*/
                 }
             }
         }
     }
 }
 
-def processDockerfiles(files) {
-    if(files instanceof List) {
-        files.split(" ").each {
-            println it
-            def match = (it =~ /(.*)\\/Dockerfile\.(\w+)(\.(.+))?/)
-            if (match.find())
-            {
-                // DO NOT USE THIS, BECAUSE IT FAILS WITH `"docker build" requires exactly 1 argument.` - LIKELY A BUG!
-                // docker.build(IMAGE, '-f ' + it + ' --no-cache .')
+def processDockerfiles(String files, Boolean SNAPSHOT)
+{
+    def BUILD_ARGS = SNAPSHOT ? " --snapshot " : ""
+    def images = [];
 
-                def TAG = match.group(4) ? match.group(4) : 'base'
-                def IMAGE = "${IMAGE_NAME}:" + TAG
+    files.split(" ").each {
+        println it
+        def match = (it =~ /(.*)\\/Dockerfile\.(\w+)(\.(.+))?/)
+        if (match.find())
+        {
+            // DO NOT USE THIS, BECAUSE IT FAILS WITH `"docker build" requires exactly 1 argument.` - LIKELY A BUG!
+            // docker.build(IMAGE, '-f ' + it + ' --no-cache .')
 
-                sh label: "Building $IMAGE_NAME",
-                   script: "/bin/bash ${env.WORKSPACE}/build.sh $it"
+            def IMAGE_TAG = sh(returnStdout: true, script: '''/bin/bash ${env.WORKSPACE}/build.sh ${BUILD_ARGS} --get-image $it''')
 
-                IMAGES.add(IMAGE)
-            }
-            else
-            {
-                println "Something went wrong and we could not properly parse ${it} - skipping"
-            }
+            sh label: "Building $IMAGE_TAG",
+               script: "/bin/bash ${env.WORKSPACE}/build.sh ${BUILD_ARGS} $it"
+
+            images.add(IMAGE_TAG)
         }
-    } else {
-        error "processDockerfiles expects argument to be an array, but received " + files.getClass()
+        else
+        {
+            println "Something went wrong and we could not properly parse ${it} - skipping"
+        }
     }
+
+    return images
 }
