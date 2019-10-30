@@ -1,0 +1,33 @@
+pipeline {
+    agent {
+        label "alpine:docker"
+    }
+    stages {
+        stage('Node') {
+            nodeInfo("docker")
+        }
+        stage('strongboxci/alpine:base') {
+            when {
+                changeset "images/alpine/Dockerfile.alpine"
+            }
+            steps {
+                script {
+                    echo "base"
+                }
+            }
+        }
+        stage('strongboxci/alpine:jdk11') {
+            when {
+                anyOf {
+                    changeset "Dockerfile.alpine"
+                    changeset "images/alpine/jdk11/Dockerfile.alpine.*"
+                }
+            }
+            steps {
+                script {
+                    echo "jdk11"
+                }
+            }
+        }        
+    }
+}
