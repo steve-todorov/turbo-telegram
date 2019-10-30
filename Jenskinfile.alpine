@@ -1,6 +1,16 @@
+@Library('jenkins-shared-libraries') _
+
 pipeline {
     agent {
         label "alpine:docker"
+    }
+    options {
+        buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '50', daysToKeepStr: '', numToKeepStr: '1000')
+        timeout(time: 2, unit: 'HOURS')
+        disableResume()
+        durabilityHint 'PERFORMANCE_OPTIMIZED'
+        disableConcurrentBuilds()
+        skipStagesAfterUnstable()
     }
     stages {
         stage('Node') {
@@ -12,22 +22,34 @@ pipeline {
             }
             steps {
                 script {
-                    echo "base"
+                    docker.build('-f images/alpine/Dockerfile.alpine -t strongboxci/alpine:base --no-cache .')
                 }
+            }
+        }
+        stage('strongboxci/alpine:jdk8') {
+            when {
+                anyOf {
+                    changeset "images/alpine/Dockerfile.alpine"
+                    changeset "images/alpine/jdk8/Dockerfile.alpine.*"
+                }
+            }
+            steps {
+                echo "jdk8"
+                // docker.build('-f images/alpine/Dockerfile.alpine -t strongboxci/alpine:base --no-cache .')
             }
         }
         stage('strongboxci/alpine:jdk11') {
             when {
                 anyOf {
-                    changeset "Dockerfile.alpine"
+                    changeset "images/alpine/Dockerfile.alpine"
                     changeset "images/alpine/jdk11/Dockerfile.alpine.*"
                 }
             }
             steps {
-                script {
-                    echo "jdk11"
-                }
+                echo "jdk11"
+
+                // docker.build('-f images/alpine/Dockerfile.alpine -t strongboxci/alpine:base --no-cache .')
             }
-        }        
+        }
     }
 }
