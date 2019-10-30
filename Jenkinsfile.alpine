@@ -1,8 +1,12 @@
 @Library('jenkins-shared-libraries') _
 
+def DISTRIBUTION = 'alpine'
+def IMAGE_NAME = "strongboxci/" + DISTRIBUTION
+def IMAGES = [];
+
 pipeline {
     agent {
-        label "alpine:docker"
+        label "alpine-docker"
     }
     options {
         buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '50', daysToKeepStr: '', numToKeepStr: '1000')
@@ -14,10 +18,12 @@ pipeline {
         skipStagesAfterUnstable()
     }
     stages {
-        stage('Node') {
+        stage('node') {
             steps {
-                nodeInfo("docker")
-                checkout scm
+                container("docker") {
+                    nodeInfo("docker")
+                    checkout scm
+                }
             }
         }
         stage('base') {
@@ -29,7 +35,14 @@ pipeline {
             }
             steps {
                 script {
-                    docker.build('strongboxci/alpine:base', '-f images/alpine/Dockerfile.alpine --no-cache .')
+                    container("docker") {
+                        IMAGE = "strongboxci/" + DISTRIBUTION + ":base"
+
+                        sh label: "Building $IMAGE_NAME",
+                           script: "${env.WORKSPACE}/build.sh ./images/$DISTRIBUTION/Dockerfile.$DISTRIBUTION"
+
+                        images.add(IMAGE)
+                    }
                 }
             }
         }
@@ -43,27 +56,38 @@ pipeline {
                 }
             }
             steps {
-                script {
-                    def files = sh(returnStdout: true, script: '''find ./images/alpine -mindepth 2 -type f -name "*Dockerfile*" | sort | xargs''')
-                    println files
+                container("docker") {
 
-                    files.split(" ").each {
-                        println it
-                        def match = (it =~ /(.*)\\/Dockerfile\.(\w+)(\.(.+))?/)
-                        if (match.find()) {
-                            def DISTRIBUTION = match.group(2)
-                            def TAG = match.group(4) ? match.group(4) : 'base'
-                            def IMAGE = "strongboxci/$DISTRIBUTION:$TAG"
-                        } else {
-                            println "Something went wrong and we could not properly parse ${f} - skipping"
+                    script {
+
+                        def files = sh(returnStdout: true, script: '''find ./images/alpine -mindepth 2 -type f -name "*Dockerfile*" | sort | xargs''')
+                        println files
+
+                        files.split(" ").each {
+                            println it
+                            def match = (it =~ /(.*)\\/Dockerfile\.(\w+)(\.(.+))?/)
+                            if (match.find())
+                            {
+                                //println "Building image: ${IMAGE}"
+                                // DO NOT USE THIS, BECAUSE IT FAILS WITH `"docker build" requires exactly 1 argument.`!
+                                // docker.build(IMAGE, '-f ' + it + ' --no-cache .')
+
+                                def TAG = match.group(4) ? match.group(4) : 'base'
+                                def IMAGE = "${IMAGE_NAME}:" + TAG
+
+                                sh label: "Building $IMAGE_NAME",
+                                   script: "${env.WORKSPACE}/build.sh $it"
+
+                                IMAGES.add(IMAGE)
+                            }
+                            else
+                            {
+                                println "Something went wrong and we could not properly parse ${it} - skipping"
+                            }
                         }
-
-                        println "Building image: ${IMAGE}"
-
-                        docker.build($IMAGE, '-f ${it} --no-cache .')
                     }
+                    echo "jdk test"
                 }
-                echo "jdk test"
             }
         }
         stage('build-tools') {
@@ -75,7 +99,16 @@ pipeline {
                 }
             }
             steps {
-                echo "build-tools test"
+                container("docker") {
+                    echo "build-tools test"
+                }
+            }
+        }
+        stage('deploying') {
+            steps {
+                container("docker") {
+                    echo "Deploying: " + images.join(" ")
+                }
             }
         }
     }
