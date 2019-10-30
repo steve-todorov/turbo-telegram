@@ -29,8 +29,6 @@ pipeline {
             steps {
                 container("docker") {
                     nodeInfo("docker")
-                    processDockerfiles("./images/${DISTRIBUTION}/Dockerfile.${DISTRIBUTION}", SNAPSHOT);
-                    error "yes."
                 }
             }
         }
@@ -44,7 +42,7 @@ pipeline {
             steps {
                 script {
                     container("docker") {
-                        def built = processDockerfiles(IMAGE_NAME, SNAPSHOT, "./images/" + DISTRIBUTION + "/Dockerfile." + DISTRIBUTION);
+                        def built = processDockerfiles("./images/" + DISTRIBUTION + "/Dockerfile." + DISTRIBUTION, SNAPSHOT);
                         IMAGES.plus(built)
                     }
                 }
@@ -114,9 +112,9 @@ pipeline {
     }
 }
 
-def processDockerfiles(String files, Boolean SNAPSHOT)
+def processDockerfiles(files, snapshot)
 {
-    def BUILD_ARGS = SNAPSHOT ? " --snapshot " : ""
+    def BUILD_ARGS = snapshot ? " --snapshot " : ""
     def images = [];
 
     files.split(" ").each {
