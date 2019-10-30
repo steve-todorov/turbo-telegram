@@ -7,7 +7,7 @@ MAIN_BUILD_LOG=$CURRENT_DIR/build.log
 TAG_SNAPSHOT=""
 # So that we can pass the timestamp from the CI
 TIMESTAMP=${TIMESTAMP:-`date +"%y%m%d%H%M%S"`}
-GET_SNAPSHOT=""
+GET_IMAGE=""
 
 getDistribution() {
   echo $1 | awk -F[=.] '{print $2}'
@@ -37,6 +37,16 @@ getImage() {
   echo "strongboxci/$1:$2"
 }
 
+getImageFromFile() {
+  DOCKER_FILE=$1
+  BASEPATH=`getBasePath "$DOCKER_FILE"`
+  FILENAME=`getFilename "$DOCKER_FILE"`
+  DISTRIBUTION=`getDistribution "$FILENAME"`
+  TAG=`getTag "$FILENAME" "$DISTRIBUTION"`
+  IMAGE=`getImage "$DISTRIBUTION" "$TAG"`
+  echo $IMAGE
+}
+
 build() {
   DOCKER_FILE=$1
 
@@ -63,16 +73,6 @@ build() {
   echo ""
 
   echo "success: $IMAGE" >> $MAIN_BUILD_LOG
-}
-
-getSnapshot() {
-  DOCKER_FILE=$1
-  BASEPATH=`getBasePath "$DOCKER_FILE"`
-  FILENAME=`getFilename "$DOCKER_FILE"`
-  DISTRIBUTION=`getDistribution "$FILENAME"`
-  TAG=`getTag "$FILENAME" "$DISTRIBUTION"`
-  IMAGE=`getImage "$DISTRIBUTION" "$TAG"`
-  echo $IMAGE
 }
 
 usage() {
@@ -123,8 +123,8 @@ while [[ $# -gt 0 ]]; do
             fi
             shift
           ;;
-        -gs|--get-snapshot)
-          GET_SNAPSHOT=true
+        -gi|--get-image)
+          GET_IMAGE=true
           shift
         ;;
         -h|--help)
@@ -141,29 +141,29 @@ done
 
 if [[ ! -z $BUILD_PATH ]]; then
   # Clear main build log before starting.
-  if [[ -z "$GET_SNAPSHOT" ]]; then
+  if [[ -z "$GET_IMAGE" ]]; then
     truncate -s 0 $MAIN_BUILD_LOG
   fi
 
   # build all Dockerfiles in a directory
   if [[ -d $BUILD_PATH ]]; then
     for dockerFile in $(find $BUILD_PATH -type f -name "*Dockerfile*" ! -name "*.log" ! -name "*.bkp*" | sort | xargs); do
-      if [[ -z "$GET_SNAPSHOT" ]]; then
+      if [[ -z "$GET_IMAGE" ]]; then
         build "$dockerFile"
       else
-        getSnapshot "$dockerFile"
+        getImageFromFile "$dockerFile"
       fi
     done
-    if [[ -z "$GET_SNAPSHOT" ]]; then
+    if [[ -z "$GET_IMAGE" ]]; then
       echo "Done" >> $MAIN_BUILD_LOG
     fi
   # build a specific Dockerfile
   elif [[ -f $BUILD_PATH ]]; then
-    if [[ -z "$GET_SNAPSHOT" ]]; then
+    if [[ -z "$GET_IMAGE" ]]; then
       build "$BUILD_PATH"
       echo "Done" >> $MAIN_BUILD_LOG
     else
-      getSnapshot "$BUILD_PATH"
+      getImageFromFile "$BUILD_PATH"
     fi
   # what just happened?
   else
@@ -172,4 +172,4 @@ if [[ ! -z $BUILD_PATH ]]; then
   fi
 fi
 
-[[ ! -z "$GET_SNAPSHOT" ]] || echo ""
+[[ ! -z "$GET_IMAGE" ]] || echo ""
