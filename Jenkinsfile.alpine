@@ -22,7 +22,11 @@ pipeline {
         }
         stage('strongboxci/alpine:base') {
             when {
-                changeset "images/alpine/Dockerfile.alpine"
+                anyOf {
+                    // should run upon manual build.
+                    currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')['userId']
+                    changeset "images/alpine/Dockerfile.alpine"
+                }
             }
             steps {
                 script {
@@ -33,6 +37,8 @@ pipeline {
         stage('strongboxci/alpine:jdk8') {
             when {
                 anyOf {
+                    // should run upon manual build.
+                    currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')['userId']
                     changeset "images/alpine/Dockerfile.alpine"
                     changeset "images/alpine/jdk8/Dockerfile.alpine.*"
                 }
@@ -45,6 +51,8 @@ pipeline {
         stage('strongboxci/alpine:jdk11') {
             when {
                 anyOf {
+                    // should run upon manual build.
+                    currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')['userId']
                     changeset "images/alpine/Dockerfile.alpine"
                     changeset "images/alpine/jdk11/Dockerfile.alpine.*"
                 }
