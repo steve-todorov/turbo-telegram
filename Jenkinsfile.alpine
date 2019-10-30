@@ -14,7 +14,9 @@ pipeline {
     }
     stages {
         stage('Node') {
-            nodeInfo("docker")
+            steps {
+                nodeInfo("docker")
+            }
         }
         stage('strongboxci/alpine:base') {
             when {
