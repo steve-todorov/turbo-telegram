@@ -128,7 +128,7 @@ def processDockerfiles(files, snapshot)
             def IMAGE_TAG = sh(returnStdout: true, script: '''/bin/bash ${env.WORKSPACE}/build.sh ${BUILD_ARGS} --get-image $it''')
 
             sh label: "Building $IMAGE_TAG",
-               script: "/bin/bash ${env.WORKSPACE}/build.sh ${BUILD_ARGS} $it"
+               script: "/bin/bash ./build.sh ${BUILD_ARGS} $it"
 
             images.add(IMAGE_TAG)
         }
