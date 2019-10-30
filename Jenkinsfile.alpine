@@ -1,8 +1,5 @@
 @Library('jenkins-shared-libraries') _
 
-def userIdCause = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause');
-def manualTrigger = (userIdCause != null && userIdCause[0].hasProperty('userId'))
-
 pipeline {
     agent {
         label "alpine:docker"
@@ -26,13 +23,13 @@ pipeline {
         stage('strongboxci/alpine:base') {
             when {
                 anyOf {
-                    manualTrigger
+                    triggeredBy cause: "UserIdCause"
                     changeset "images/alpine/Dockerfile.alpine"
                 }
             }
             steps {
                 script {
-                    docker.build('-f images/alpine/Dockerfile.alpine -t strongboxci/alpine:base --no-cache .')
+                    docker.build('strongboxci/alpine:base', '-f images/alpine/Dockerfile.alpine --no-cache .')
                 }
             }
         }
@@ -40,7 +37,7 @@ pipeline {
             when {
                 anyOf {
                     // should run upon manual build.
-                    manualTrigger
+                    triggeredBy cause: "UserIdCause"
                     changeset "images/alpine/Dockerfile.alpine"
                     changeset "images/alpine/jdk8/Dockerfile.alpine.*"
                 }
@@ -54,7 +51,7 @@ pipeline {
             when {
                 anyOf {
                     // should run upon manual build.
-                    manualTrigger
+                    triggeredBy cause: "UserIdCause"
                     changeset "images/alpine/Dockerfile.alpine"
                     changeset "images/alpine/jdk11/Dockerfile.alpine.*"
                 }
