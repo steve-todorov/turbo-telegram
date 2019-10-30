@@ -41,7 +41,7 @@ pipeline {
                         sh label: "Building $IMAGE_NAME",
                            script: "${env.WORKSPACE}/build.sh ./images/$DISTRIBUTION/Dockerfile.$DISTRIBUTION"
 
-                        images.add(IMAGE)
+                        IMAGES.add(IMAGE)
                     }
                 }
             }
