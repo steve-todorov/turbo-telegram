@@ -1,8 +1,9 @@
 @Library('jenkins-shared-libraries') _
 
 def DISTRIBUTION = 'alpine'
-def IMAGE_NAME = "strongboxci/" + DISTRIBUTION
-def SNAPSHOT = params.getOrDefault("DEPLOY", false);
+def DEPLOY = params.getOrDefault("DEPLOY", false)
+// tag as SNAPSHOT if not `master` or is `pr`
+def SNAPSHOT =  (env.CHANGE_ID || env.BRANCH_NAME != 'master');
 def TIMESTAMP = (new Date()).format("yyyyddMMHHmmss")
 def IMAGES = [];
 
@@ -32,56 +33,37 @@ pipeline {
                 }
             }
         }
-        stage('base') {
-            when {
-                anyOf {
-                    triggeredBy cause: "UserIdCause"
-                    changeset "images/alpine/Dockerfile.${DISTRIBUTION}"
-                }
+        stage('images') {
+            parallel {
+
             }
+        }
+        stage('base') {
             steps {
                 script {
                     container("docker") {
-                        def built = processDockerfiles("./images/" + DISTRIBUTION + "/Dockerfile." + DISTRIBUTION, SNAPSHOT);
-                        IMAGES.plus(built)
+                        def built = processDockerfiles(findDockerfiles((String) "./images/$DISTRIBUTION/Dockerfile.$DISTRIBUTION*"), SNAPSHOT);
+                        IMAGES = IMAGES + built
                     }
                 }
             }
         }
         stage('jdk8') {
-            when {
-                anyOf {
-                    // should run upon manual build.
-                    triggeredBy cause: "UserIdCause"
-                    changeset "images/${DISTRIBUTION}/Dockerfile.${DISTRIBUTION}"
-                    changeset "images/${DISTRIBUTION}/jdk8/Dockerfile.${DISTRIBUTION}.*"
-                }
-            }
             steps {
                 container("docker") {
                     script {
-                        def files = sh(returnStdout: true, script: '''find ./images/${DISTRIBUTION}/jdk8 -type f -name "*Dockerfile*" | sort | xargs''')
-                        def built = processDockerfiles(files, SNAPSHOT);
-                        IMAGES.plus(built)
+                        def built = processDockerfiles(findDockerfiles((String) "./images/$DISTRIBUTION/jdk8"), SNAPSHOT);
+                        IMAGES = IMAGES + built
                     }
                 }
             }
         }
         stage('jdk11') {
-            when {
-                anyOf {
-                    // should run upon manual build.
-                    triggeredBy cause: "UserIdCause"
-                    changeset "images/${DISTRIBUTION}/Dockerfile.${DISTRIBUTION}"
-                    changeset "images/${DISTRIBUTION}/jdk11/Dockerfile.${DISTRIBUTION}.*"
-                }
-            }
             steps {
                 container("docker") {
                     script {
-                        def files = sh(returnStdout: true, script: '''find ./images/${DISTRIBUTION}/jdk11 -type f -name "*Dockerfile*" | sort | xargs''')
-                        def built = processDockerfiles(files, SNAPSHOT);
-                        IMAGES.plus(built)
+                        def built = processDockerfiles(findDockerfiles((String) "./images/$DISTRIBUTION/jdk11"), SNAPSHOT);
+                        IMAGES = IMAGES + built
                     }
                 }
             }
@@ -90,26 +72,40 @@ pipeline {
             when {
                 anyOf {
                     branch 'master'
-                    expression { params.getOrDefault("DEPLOY", false) == true }
+                    expression { DEPLOY == true }
                 }
             }
             steps {
                 container("docker") {
-                    echo "Deploying images: " + IMAGES.toString()
-/*
-                    withDockerRegistry([credentialsId: dockerCredentials, url: dockerUrl]) {
+                    echo "Images to push: " + IMAGES.toString()
+                    withDockerRegistry([credentialsId: '6fedbf52-4df3-4328-90d6-0caf08edb68d', url: "https://index.docker.io/v1/"]) {
                         script {
-                            IMAGES.each {
-                                sh label: "Publishing ${it}...",
-                                   script: "docker push ${it}"
+                            def attempt = 0
+                            retry(5) {
+                                // wait for a moment, might be a temporary network issue?
+                                if(attempt > 0) {
+                                    sleep 15
+                                }
+                                attempt++;
+                                IMAGES.each {
+                                    sh label: "Publishing ${it}...",
+                                       script: "docker push ${it}"
+                                }
                             }
                         }
                     }
-*/
                 }
             }
         }
     }
+}
+
+def findDockerfiles(path, maxDepth = "")
+{
+    def findArgs = maxDepth ? " -maxdepth $maxDepth " : ""
+    // !!!!!!!! DO NOT MESS WITH THE QUOTES OR YOU WILL REGRET IT !!!!!!!!
+    // https://gist.github.com/Faheetah/e11bd0315c34ed32e681616e41279ef4
+    return sh(script: """find $path $findArgs -type f -name "*Dockerfile*" ! -name "*build.log" | sort | xargs""", label: "Searching for Dockerfiles", returnStdout: true)
 }
 
 def processDockerfiles(files, snapshot)
@@ -122,15 +118,17 @@ def processDockerfiles(files, snapshot)
         def match = (it =~ /(.*)\\/Dockerfile\.(\w+)(\.(.+))?/)
         if (match.find())
         {
-            // DO NOT USE THIS, BECAUSE IT FAILS WITH `"docker build" requires exactly 1 argument.` - LIKELY A BUG!
-            // docker.build(IMAGE, '-f ' + it + ' --no-cache .')
+            retry(2) {
+                // Do not use `docker.build` because it fails with `"docker build" requires exactly 1 argument.`.
+                // docker.build(IMAGE, '-f ${it} --no-cache .')
 
-            def IMAGE_TAG = sh(returnStdout: true, script: "/bin/bash ./build.sh ${BUILD_ARGS} --get-image $it")
+                def IMAGE_TAG = sh(label: "Getting image tag", script: "/bin/bash ./build.sh ${BUILD_ARGS} --get-image $it", returnStdout: true)
 
-            sh label: "Building $IMAGE_TAG",
-               script: "/bin/bash ./build.sh ${BUILD_ARGS} $it"
+                sh label: "Building $IMAGE_TAG",
+                   script: "/bin/bash ./build.sh --no-cache ${BUILD_ARGS} $it"
 
-            images.add(IMAGE_TAG)
+                images.add(IMAGE_TAG)
+            }
         }
         else
         {

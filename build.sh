@@ -59,12 +59,15 @@ build() {
   TAG=$(getTag "$FILENAME" "$DISTRIBUTION")
   IMAGE=$(getImage "$DISTRIBUTION" "$TAG")
 
+  DOCKER_BUILD_ARGS=""
+  [[ ! -z "$TAG_SNAPSHOT" ]] && DOCKER_BUILD_ARGS=" --build-arg SNAPSHOT=-$TAG_SNAPSHOT"
+
   echo "Distribution: $DISTRIBUTION"
   echo "Tag: $TAG"
   echo "Image: $IMAGE"
   echo ""
 
-  (set -euxo pipefail; docker build -f "$DOCKER_FILE" -t "$IMAGE" $BUILD_WITH_NO_CACHE_ARG $CURRENT_DIR | tee "$DOCKER_FILE.build.log") || {
+  (set -euxo pipefail; docker build -f "$DOCKER_FILE" -t "$IMAGE" $DOCKER_BUILD_ARGS $BUILD_WITH_NO_CACHE_ARG $CURRENT_DIR | tee "$DOCKER_FILE.build.log") || {
     echo "fail: $IMAGE" >> $MAIN_BUILD_LOG
     echo "Done" >> $MAIN_BUILD_LOG
     exit 1

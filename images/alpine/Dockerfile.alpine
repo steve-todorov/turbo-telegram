@@ -40,9 +40,8 @@ RUN set -x \
  && chmod -R 755 /var/lib/rpm /var/tmp \
  && rm -rf /tmp/* /scripts
 
-WORKDIR /home/jenkins
+WORKDIR $HOME
 
 USER jenkins
 
 CMD echo "" && cat /etc/os-release && echo "" && /bin/bash
-
