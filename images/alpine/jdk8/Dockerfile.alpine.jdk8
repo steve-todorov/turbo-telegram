@@ -15,7 +15,7 @@ ENV JDK_DW_DIR_NAME="${JDK_NAME}-ojdkbuild-linux-x64" \
     JDK_DW_URL="https://github.com/ojdkbuild/contrib_jdk8u-ci/releases/download/${JDK_DW_PATH}/${JDK_DW_FILENAME}"
 
 ENV JAVA_HOME="/java/${JDK_DIR_NAME}"
-ENV PATH $JAVA_HOME/bin:$PATH
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 ADD https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub /etc/apk/keys/sgerrand.rsa.pub
 ADD https://github.com/sgerrand/alpine-pkg-glibc/releases/download/$GLIBC_VERSION/glibc-$GLIBC_VERSION.apk /tmp/glibc-$GLIBC_VERSION.apk

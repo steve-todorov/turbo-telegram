@@ -1,5 +1,5 @@
 ARG SNAPSHOT=""
-FROM strongboxci/alpine:base$SNAPSHOT
+FROM strongboxci/ubuntu:jdk8-mvn3.6$SNAPSHOT
 
 USER root
 

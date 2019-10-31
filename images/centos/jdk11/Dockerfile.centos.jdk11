@@ -1,5 +1,5 @@
 ARG SNAPSHOT=""
-FROM strongboxci/alpine:base$SNAPSHOT
+FROM strongboxci/centos:base$SNAPSHOT
 
 ENV JDK_VERSION=11 \
     JDK_UPDATE=0.5 \

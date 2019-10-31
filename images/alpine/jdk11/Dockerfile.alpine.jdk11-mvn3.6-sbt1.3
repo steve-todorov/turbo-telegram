@@ -1,5 +1,5 @@
 ARG SNAPSHOT=""
-FROM strongboxci/alpine:base$SNAPSHOT
+FROM strongboxci/alpine:jdk11-mvn3.6$SNAPSHOT
 
 ENV SBT_VERSION=1.3.3
 ENV SBT_HOME="/java/sbt-${SBT_VERSION}"

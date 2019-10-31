@@ -40,7 +40,7 @@ RUN set -x \
  && chmod -R 755 /var/lib/rpm /var/tmp \
  && rm -rf /tmp/* /scripts
 
-WORKDIR $HOME
+WORKDIR /home/jenkins
 
 USER jenkins
 
