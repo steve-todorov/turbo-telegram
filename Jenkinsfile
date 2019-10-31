@@ -35,19 +35,21 @@ pipeline {
         }
         stage('Build') {
             steps {
-                container("docker") {
-                    script {
-                        def buildStages = [:]
-                        def alpine = distributionBuildStages("alpine")
-                        alpine.delegate = Closure.DELEGATE_FIRST
-                        buildStages.put("alpine", alpine)
+                script {
+                    def buildStages = [:]
+                    buildStages.put("alpine", distributionBuildStages("alpine", SNAPSHOT, IMAGES))
+                    buildStages.put("debian", distributionBuildStages("debian", SNAPSHOT, IMAGES))
+                    buildStages.put("centos", distributionBuildStages("centos", SNAPSHOT, IMAGES))
+                    buildStages.put("opensuse", distributionBuildStages("opensuse", SNAPSHOT, IMAGES))
+                    buildStages.put("ubuntu", distributionBuildStages("ubuntu", SNAPSHOT, IMAGES))
 
-                        parallel buildStages
-                    }
+                    parallel buildStages
+
+                    println IMAGES
                 }
             }
         }
-        stage('publishing') {
+        stage('Publish') {
             when {
                 anyOf {
                     branch 'master'
@@ -79,35 +81,29 @@ pipeline {
     }
 }
 
-def distributionBuildStages(distribution) {
+def distributionBuildStages(distribution, SNAPSHOT, IMAGES) {
     return {
         stage('base') {
-            steps {
-                script {
-                    container("docker") {
-                        def built = processDockerfiles(findDockerfiles((String) "./images/$distribution/Dockerfile.$distribution*"), SNAPSHOT);
-                        IMAGES = IMAGES + built
-                    }
+            script {
+                container("docker") {
+                    def built = processDockerfiles(findDockerfiles((String) "./images/$distribution/Dockerfile.$distribution*"), SNAPSHOT);
+                    IMAGES = IMAGES + built
                 }
             }
         }
         stage('jdk8') {
-            steps {
-                container("docker") {
-                    script {
-                        def built = processDockerfiles(findDockerfiles((String) "./images/$distribution/jdk8"), SNAPSHOT);
-                        IMAGES = IMAGES + built
-                    }
+            container("docker") {
+                script {
+                    def built = processDockerfiles(findDockerfiles((String) "./images/$distribution/jdk8"), SNAPSHOT);
+                    IMAGES = IMAGES + built
                 }
             }
         }
         stage('jdk11') {
-            steps {
-                container("docker") {
-                    script {
-                        def built = processDockerfiles(findDockerfiles((String) "./images/$distribution/jdk11"), SNAPSHOT);
-                        IMAGES = IMAGES + built
-                    }
+            container("docker") {
+                script {
+                    def built = processDockerfiles(findDockerfiles((String) "./images/$distribution/jdk11"), SNAPSHOT);
+                    IMAGES = IMAGES + built
                 }
             }
         }
