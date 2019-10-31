@@ -86,6 +86,7 @@ pipeline {
     post {
         always {
             container("docker") {
+                archiveArtifacts 'build.log'
                 archiveArtifacts '**/*.build.log'
             }
         }
