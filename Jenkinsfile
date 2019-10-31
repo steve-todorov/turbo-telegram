@@ -7,6 +7,10 @@ def SNAPSHOT =  DEPLOY ? true : (env.CHANGE_ID || env.BRANCH_NAME != 'master');
 def TIMESTAMP = (new Date()).format("yyyyddMMHHmmss")
 def IMAGES = [];
 
+// This looks like shit because of
+//  - https://issues.jenkins-ci.org/browse/JENKINS-35988
+//  - https://issues.jenkins-ci.org/browse/JENKINS-36195
+
 pipeline {
     agent {
         label "alpine-docker"
@@ -79,14 +83,21 @@ pipeline {
             }
         }
     }
+    post {
+        always {
+            container("docker") {
+                archiveArtifacts '*/**.build.log'
+            }
+        }
+    }
 }
 
-def distributionBuildStages(distribution, SNAPSHOT, IMAGES) {
+def distributionBuildStages(DISTRIBUTION, SNAPSHOT, IMAGES) {
     return {
         stage('base') {
-            script {
-                container("docker") {
-                    def built = processDockerfiles(findDockerfiles((String) "./images/$distribution/Dockerfile.$distribution*"), SNAPSHOT);
+            container("docker") {
+                script {
+                    def built = processDockerfiles(findDockerfiles((String) "./images/$DISTRIBUTION/Dockerfile.$DISTRIBUTION*"), SNAPSHOT);
                     IMAGES = IMAGES + built
                 }
             }
@@ -94,7 +105,7 @@ def distributionBuildStages(distribution, SNAPSHOT, IMAGES) {
         stage('jdk8') {
             container("docker") {
                 script {
-                    def built = processDockerfiles(findDockerfiles((String) "./images/$distribution/jdk8"), SNAPSHOT);
+                    def built = processDockerfiles(findDockerfiles((String) "./images/$DISTRIBUTION/jdk8"), SNAPSHOT);
                     IMAGES = IMAGES + built
                 }
             }
@@ -102,7 +113,7 @@ def distributionBuildStages(distribution, SNAPSHOT, IMAGES) {
         stage('jdk11') {
             container("docker") {
                 script {
-                    def built = processDockerfiles(findDockerfiles((String) "./images/$distribution/jdk11"), SNAPSHOT);
+                    def built = processDockerfiles(findDockerfiles((String) "./images/$DISTRIBUTION/jdk11"), SNAPSHOT);
                     IMAGES = IMAGES + built
                 }
             }
